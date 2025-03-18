@@ -1,0 +1,3 @@
+# This is an empty migration that applies manual SQL
+
+migration_name = "manual_document_updates" 
