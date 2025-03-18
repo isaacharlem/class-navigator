@@ -1,0 +1,12 @@
+# This is a CODEOWNERS file to define individuals or teams responsible for code in this repository
+# Each line is a file pattern followed by one or more owners
+
+# These owners will be the default owners for everything in the repository
+* @isaacharlem
+
+# Source code directories
+/src/ @isaacharlem
+
+# Configuration files
+*.config.* @isaacharlem
+package.json @isaacharlem
