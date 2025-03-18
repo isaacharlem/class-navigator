@@ -26,11 +26,28 @@ export default function ChatUI({
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const messagesCount = useRef(initialMessages.length);
 
   // Scroll to bottom of messages
   useEffect(() => {
     scrollToBottom();
+    messagesCount.current = messages.length;
   }, [messages]);
+
+  // Check for empty chat on unmount
+  useEffect(() => {
+    return () => {
+      // Only check if the initial messages were empty and no new messages were added
+      if (initialMessages.length === 0 && messagesCount.current === 0) {
+        // Call the API to delete the chat if it's empty
+        fetch(`/api/chat/${chatId}/empty`, {
+          method: "DELETE",
+        }).catch((error) => {
+          console.error("Error cleaning up empty chat:", error);
+        });
+      }
+    };
+  }, [chatId, initialMessages.length]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

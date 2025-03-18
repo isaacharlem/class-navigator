@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import ChatUI from "@/components/ChatUI";
 import { ChatMessage } from "@/types/types";
@@ -23,12 +23,17 @@ interface CourseWithCounts {
 
 export default function CourseChat() {
   const params = useParams();
+  const searchParams = useSearchParams();
+  const forceNew = searchParams.get("forceNew") === "true";
+
   const router = useRouter();
   const [course, setCourse] = useState<CourseWithCounts | null>(null);
   const [chatId, setChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const chatCreationAttempted = useRef(false);
+  const shouldCleanupChat = useRef(true);
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -48,6 +53,13 @@ export default function CourseChat() {
     };
 
     const createOrFetchChat = async () => {
+      // Prevent duplicate chat creation
+      if (chatCreationAttempted.current && forceNew) {
+        return;
+      }
+
+      chatCreationAttempted.current = true;
+
       try {
         // Create a new general chat or get the most recent one
         const response = await fetch(`/api/courses/${params.id}/chat`, {
@@ -56,8 +68,8 @@ export default function CourseChat() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            title: `Chat with ${course?.name || "Course"}`,
             type: "general",
+            forceNew: forceNew,
           }),
         });
 
@@ -69,7 +81,7 @@ export default function CourseChat() {
         setChatId(chatData.id);
 
         // Fetch messages if the chat already exists
-        if (chatData.id && chatData._count?.messages > 0) {
+        if (chatData.id) {
           const messagesResponse = await fetch(
             `/api/chat/${chatData.id}/messages`,
           );
@@ -95,7 +107,26 @@ export default function CourseChat() {
     if (params.id) {
       setup();
     }
-  }, [params.id, course?.name]);
+
+    // Cleanup
+    return () => {
+      chatCreationAttempted.current = false;
+
+      // Check if we need to delete an empty chat when navigating away
+      if (shouldCleanupChat.current && chatId && messages.length === 0) {
+        fetch(`/api/chat/${chatId}/empty`, {
+          method: "DELETE",
+        }).catch((error) => {
+          console.error("Error cleaning up empty chat:", error);
+        });
+      }
+    };
+  }, [params.id, forceNew, chatId, messages.length]);
+
+  // Disable cleanup when a message is sent successfully
+  const handleSaveChat = () => {
+    shouldCleanupChat.current = false;
+  };
 
   if (isLoading) {
     return (
@@ -168,6 +199,7 @@ export default function CourseChat() {
             chatId={chatId}
             courseId={params.id as string}
             initialMessages={messages}
+            onSaveChat={handleSaveChat}
           />
         )}
       </div>

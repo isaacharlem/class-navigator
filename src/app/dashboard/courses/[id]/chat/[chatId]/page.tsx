@@ -36,6 +36,7 @@ export default function ChatPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const shouldCleanupChat = useRef(false); // Default false since we're loading an existing chat
 
   const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -72,6 +73,10 @@ export default function ChatPage() {
         })
         .then((data) => {
           setMessages(data);
+          // If we loaded the chat and there are no messages, enable cleanup
+          if (data.length === 0) {
+            shouldCleanupChat.current = true;
+          }
           setLoading(false);
           scrollToBottom();
         })
@@ -81,7 +86,18 @@ export default function ChatPage() {
           setLoading(false);
         });
     }
-  }, [chatIdValue, router, status]);
+
+    // Cleanup function for empty chats
+    return () => {
+      if (shouldCleanupChat.current && chatIdValue && messages.length === 0) {
+        fetch(`/api/chat/${chatIdValue}/empty`, {
+          method: "DELETE",
+        }).catch(error => {
+          console.error("Error cleaning up empty chat:", error);
+        });
+      }
+    };
+  }, [chatIdValue, router, status, messages.length]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -143,6 +159,9 @@ export default function ChatPage() {
           createdAt: new Date().toISOString(),
         },
       ]);
+
+      // Disable cleanup since we now have messages
+      shouldCleanupChat.current = false;
     } catch (err) {
       console.error("Error sending message:", err);
       setError("Failed to send message. Please try again.");

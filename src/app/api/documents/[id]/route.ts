@@ -8,9 +8,10 @@ const prisma = new PrismaClient();
 // DELETE /api/documents/[id] - Delete a document
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } },
+  context: { params: { id: string } }
 ) {
   try {
+    const params = await context.params;
     const { id } = params;
     const session = await getServerSession(authOptions);
 
