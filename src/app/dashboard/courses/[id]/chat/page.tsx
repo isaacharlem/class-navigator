@@ -4,12 +4,27 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ChatUI from '@/components/ChatUI';
-import { CourseWithChatCount, ChatMessage } from '@/types/types';
+import { ChatMessage } from '@/types/types';
+import type { Course } from '@prisma/client';
+
+// Define a more specific type that matches the API response
+interface CourseWithCounts {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+  userId: string;
+  _count: {
+    chats: number;
+    documents: number;
+  };
+}
 
 export default function CourseChat() {
   const params = useParams();
   const router = useRouter();
-  const [course, setCourse] = useState<CourseWithChatCount | null>(null);
+  const [course, setCourse] = useState<CourseWithCounts | null>(null);
   const [chatId, setChatId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);

@@ -10,7 +10,6 @@ interface PdfUploaderProps {
 export default function PdfUploader({ courseId, onUploadComplete }: PdfUploaderProps) {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
-  const [useOcr, setUseOcr] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -57,25 +56,46 @@ export default function PdfUploader({ courseId, onUploadComplete }: PdfUploaderP
       // Create FormData object for file upload
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('title', title);
-      formData.append('useOcr', useOcr.toString());
+      
+      // Ensure title is properly set
+      const trimmedTitle = title.trim();
+      if (!trimmedTitle) {
+        throw new Error('Document title is required');
+      }
+      formData.append('title', trimmedTitle);
 
-      // Use the upload endpoint to handle PDF files
+      // Log what we're sending (for debugging)
+      console.log(`Uploading PDF: ${file.name}, Size: ${file.size}, Title: ${trimmedTitle}`);
+
+      // IMPORTANT: Make sure we're using the correct endpoint for PDF uploads
       const response = await fetch(`/api/courses/${courseId}/upload`, {
         method: 'POST',
         body: formData,
+        // Do NOT set content-type here - browser sets it automatically with boundary for FormData
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to upload PDF');
+      // Log the response for debugging
+      console.log('Upload response status:', response.status);
+      
+      // Try to parse response as JSON
+      let data;
+      const responseText = await response.text();
+      console.log('Response text:', responseText);
+      
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Error parsing JSON response:', parseError);
+        throw new Error(`Server returned invalid JSON: ${responseText.substring(0, 100)}`);
       }
 
-      const data = await response.json();
-      setSuccess('PDF uploaded successfully' + (useOcr ? ' (OCR processing enabled)' : ''));
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upload PDF');
+      }
+
+      setSuccess('PDF uploaded successfully (OCR processing enabled)');
       setFile(null);
       setTitle('');
-      setUseOcr(false);
       
       if (onUploadComplete) {
         onUploadComplete(data.id);
@@ -136,25 +156,10 @@ export default function PdfUploader({ courseId, onUploadComplete }: PdfUploaderP
             <p className="mt-1 text-xs text-gray-500">Selected file: {file.name} ({Math.round(file.size / 1024)} KB)</p>
           )}
         </div>
-
-        <div className="mb-4">
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              checked={useOcr}
-              onChange={(e) => setUseOcr(e.target.checked)}
-              className="mr-2 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-            />
-            <span className="text-sm text-gray-700">
-              Enable OCR with OpenAI Vision (for scanned documents or images)
-            </span>
-          </label>
-          {useOcr && (
-            <p className="mt-1 text-xs text-gray-500">
-              Uses OpenAI's Vision API to extract text from scanned documents and images with high accuracy
-            </p>
-          )}
-        </div>
+        
+        <p className="mt-1 mb-4 text-sm text-gray-600">
+          All PDFs are automatically processed with OpenAI Vision OCR for high-quality text extraction
+        </p>
         
         <div className="flex justify-end mt-6">
           <button

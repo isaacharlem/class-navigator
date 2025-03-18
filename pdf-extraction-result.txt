@@ -1,0 +1,28 @@
+Here's the extracted text from the PDF document:
+
+---
+
+**Test PDF Document**
+
+This is a test PDF document created for testing PDF.js worker configuration.
+
+If you can read this text, then PDF text extraction is working correctly!
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus at pharetra nunc. Cras ut risus vel eros vehicula fermentum. Quisque lacinia arcu eu nibh pellentesque tincidunt. Cras vitae ante ac magna facilisis dictum eu vitae mi. Nullam condimentum vel lorem vitae tempus.
+
+Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Donec ultrices hendrerit quam, vitae consectetur est vulputate eget. Integer tincidunt ex non tortor feugiat, in fringilla libero facilisis.
+
+Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Vivamus ac neque a diam facilisis pulvinar a at metus. Integer ornare, mauris eget vulputate bibendum, nibh sapien facilisis tellus, in cursus erat mauris vel nibh.
+
+---
+
+**Second Page**
+
+This is the second page of the test PDF document.
+
+Testing multiple pages for PDF.js extraction...
+
+---
+
+This text preserves the formatting and structure as closely as possible based on the original document【4:0†temp-test.pdf】.
+

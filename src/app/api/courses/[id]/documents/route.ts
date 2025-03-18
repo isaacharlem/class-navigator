@@ -68,11 +68,30 @@ export async function POST(
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const { title, type, content, url } = await req.json();
+    // Check if this is a JSON request or form data
+    const contentType = req.headers.get('content-type') || '';
+    let title, type, content, url;
+
+    if (contentType.includes('application/json')) {
+      // Parse JSON body
+      const body = await req.json();
+      // Support both 'title' and 'name' fields for backward compatibility
+      title = body.title || body.name;
+      type = body.type;
+      content = body.content;
+      url = body.url;
+    } else {
+      // This might be a form submission from another part of the app
+      // Return a more helpful error message
+      return NextResponse.json(
+        { error: 'Use the PDF upload endpoint for file uploads' },
+        { status: 400 }
+      );
+    }
 
     if (!title) {
       return NextResponse.json(
-        { error: 'Document title is required' },
+        { error: 'Document title is required (use "title" field)' },
         { status: 400 }
       );
     }
@@ -123,7 +142,10 @@ export async function POST(
     setTimeout(async () => {
       try {
         console.log(`Starting to process document ${document.id}`);
-        await processDocument(document);
+        await processDocument({
+          ...document,
+          type: document.type as 'text' | 'url' | 'pdf'
+        });
         console.log(`Document ${document.id} processed successfully`);
         
         // Update the document status directly rather than relying on processDocument

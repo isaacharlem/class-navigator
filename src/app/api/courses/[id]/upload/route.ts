@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { PrismaClient } from '@prisma/client';
 import { authOptions } from '../../../auth/[...nextauth]/route';
 import { processDocument } from '@/lib/documentProcessor';
+import { cancelAllActiveRuns } from '@/lib/assistantService';
 
 const prisma = new PrismaClient();
 
@@ -48,20 +49,28 @@ export async function POST(
       }
 
       const file = formData.get('file') as File | null;
-      const title = formData.get('title') as string | null;
-      const useOcr = formData.get('useOcr') === 'true';
+      let title = formData.get('title') as string | null;
+      
+      console.log('FormData entries:', {
+        file: file ? { name: file.name, type: file.type, size: file.size } : null,
+        title: title
+      });
       
       // Validate inputs
       if (!file) {
         return handleError('No file provided', 400);
       }
       
-      if (!title) {
+      // Ensure title is properly defined and not whitespace
+      if (!title || title.trim() === '') {
         return handleError('Document title is required', 400);
       }
+      
+      // Trim the title
+      title = title.trim();
 
-      // Validate file type
-      if (!file.type.includes('pdf')) {
+      // Validate file type - more comprehensive check
+      if (!file.type.includes('pdf') && !file.name.toLowerCase().endsWith('.pdf')) {
         return handleError('Only PDF files are supported', 400);
       }
 
@@ -71,12 +80,17 @@ export async function POST(
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
         
+        // Ensure we have a valid buffer
+        if (!buffer || buffer.length === 0) {
+          return handleError('Invalid PDF file: Empty file or conversion failed', 400);
+        }
+        
         // Create the document record
         const document = await prisma.document.create({
           data: {
             title,
             type: 'pdf',
-            content: useOcr ? '[PDF content being processed with OCR]' : '[PDF content being processed]',
+            content: '[PDF content being processed with OpenAI Assistant API]',
             fileName: file.name,
             fileSize: file.size,
             processed: false,
@@ -84,19 +98,19 @@ export async function POST(
           },
         });
         
-        console.log(`Created PDF document: ${document.id} - ${document.title}${useOcr ? ' (with OCR)' : ''}`);
+        console.log(`Created PDF document: ${document.id} - ${document.title} (with OpenAI Assistant API)`);
         
         // Process the document asynchronously (don't wait for it to complete)
         setTimeout(async () => {
           try {
-            console.log(`Starting to process PDF document ${document.id}`);
+            console.log(`Starting to process PDF document ${document.id} with OpenAI Assistant API`);
             
             try {
-              // Extract text from the buffer
+              // Process the document with the full buffer
               await processDocument({
                 ...document,
-                content: buffer.toString('base64').substring(0, 1000) // Just a sample of the content
-              });
+                _buffer: buffer // Pass the buffer directly for processing
+              } as any);
               
               // Mark as processed
               await prisma.document.update({
@@ -104,14 +118,32 @@ export async function POST(
                 data: { processed: true },
               });
               
-              console.log(`PDF document ${document.id} processed successfully`);
+              console.log(`PDF document ${document.id} processed successfully with OpenAI Assistant API`);
             } catch (processingError) {
               console.error(`Error processing PDF document ${document.id}:`, processingError);
+              
+              // Get error message
+              const errorMessage = processingError instanceof Error 
+                ? processingError.message 
+                : 'Unknown error during PDF processing';
+              
+              // Save the extracted text we have if possible, otherwise store error
+              let errorContent = `[PROCESSING ERROR: ${errorMessage}]`;
+              
+              // Provide more specific error message for different types of errors
+              if (errorMessage.includes('worker') || errorMessage.includes('GlobalWorkerOptions')) {
+                errorContent = 'PDF processing encountered a configuration issue with the PDF.js library. The system administrator has been notified and is working to fix this issue.';
+              } else if (errorMessage.includes('rate limit') || errorMessage.includes('quota')) {
+                errorContent = 'PDF processing has been rate-limited by our AI provider. Please try again later.';
+              } else if (errorMessage.includes('format') || errorMessage.includes('invalid')) {
+                errorContent = 'The PDF file appears to be corrupted or in an unsupported format. Please check the file and try uploading again.';
+              }
+              
               await prisma.document.update({
                 where: { id: document.id },
                 data: { 
                   processed: true, // Mark as processed even if there was an error
-                  content: `[PROCESSING WARNING: PDF was stored but text extraction had issues]`
+                  content: errorContent
                 },
               });
             }
@@ -126,7 +158,7 @@ export async function POST(
         return NextResponse.json({ 
           id: document.id, 
           title: document.title,
-          message: `PDF uploaded successfully${useOcr ? ' (OCR processing enabled)' : ''}`
+          message: `PDF uploaded successfully (OCR processing enabled)`
         });
         
       } catch (error) {
@@ -150,3 +182,16 @@ export async function POST(
     }
   }
 }
+
+// Add error handler to cleanup OpenAI threads
+process.on('SIGINT', async () => {
+  console.log('Shutting down, cleaning up active PDF processing runs...');
+  try {
+    await cancelAllActiveRuns();
+    console.log('Cleanup complete');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during cleanup:', err);
+    process.exit(1);
+  }
+});

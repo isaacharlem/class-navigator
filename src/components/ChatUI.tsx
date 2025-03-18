@@ -161,13 +161,111 @@ export default function ChatUI({ chatId, courseId, initialMessages = [], onSaveC
                   <div className="mt-2 pt-2 border-t border-gray-200">
                     <p className="text-xs font-semibold text-gray-500 mb-1">Sources:</p>
                     <ul className="space-y-1">
-                      {message.citations.map((citation, i) => (
-                        <li key={i} className="text-xs text-gray-600">
-                          <div className="bg-gray-100 p-2 rounded text-xs">
-                            {citation.sourceText}
-                          </div>
-                        </li>
-                      ))}
+                      {message.citations.map((citation, i) => {
+                        // Instead of replacing with generic placeholder, preserve the actual source text
+                        return (
+                          <li key={i} className="text-xs text-gray-600">
+                            <details className="bg-gray-50 rounded">
+                              <summary className="p-2 cursor-pointer hover:bg-gray-100 flex items-center">
+                                <span className="font-medium">Source {i + 1}</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </summary>
+                              <div className="bg-gray-100 p-2 rounded text-xs">
+                                <p className="font-medium mb-1">Quoted content:</p>
+                                
+                                {citation.sourceText.includes('system found this document relevant, but actual content is not available') ? (
+                                  <div className="p-2 bg-red-50 border-l-2 border-red-500">
+                                    <p className="text-red-700">
+                                      {citation.sourceText}
+                                    </p>
+                                    <div className="mt-2 flex flex-col">
+                                      <p className="text-gray-600 italic mb-2">
+                                        The document needs to be reprocessed to extract its content.
+                                      </p>
+                                      <div className="flex justify-end space-x-2">
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              const response = await fetch(`/api/documents/${citation.documentId}/process`, {
+                                                method: 'POST',
+                                              });
+                                              if (response.ok) {
+                                                alert('Document reprocessing started. Please try your query again in a few moments.');
+                                              } else {
+                                                alert('Failed to reprocess document. Please try again later.');
+                                              }
+                                            } catch (error) {
+                                              console.error('Error reprocessing document:', error);
+                                              alert('Error reprocessing document. Please try again later.');
+                                            }
+                                          }}
+                                          className="text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-xs"
+                                        >
+                                          Reprocess Document
+                                        </button>
+                                        <button
+                                          onClick={async () => {
+                                            if (window.confirm('Are you sure you want to delete this document? This cannot be undone.')) {
+                                              try {
+                                                const response = await fetch(`/api/documents/${citation.documentId}`, {
+                                                  method: 'DELETE',
+                                                });
+                                                if (response.ok) {
+                                                  alert('Document deleted successfully. You can now upload it again.');
+                                                } else {
+                                                  alert('Failed to delete document. Please try again later.');
+                                                }
+                                              } catch (error) {
+                                                console.error('Error deleting document:', error);
+                                                alert('Error deleting document. Please try again later.');
+                                              }
+                                            }
+                                          }}
+                                          className="text-white bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-xs"
+                                        >
+                                          Delete Document
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="p-2 bg-yellow-50 border-l-2 border-yellow-500 italic whitespace-pre-wrap">
+                                    {citation.sourceText}
+                                    <div className="flex justify-end mt-2">
+                                      <button
+                                        onClick={async () => {
+                                          if (window.confirm('Are you sure you want to delete this document? This cannot be undone.')) {
+                                            try {
+                                              const response = await fetch(`/api/documents/${citation.documentId}`, {
+                                                method: 'DELETE',
+                                              });
+                                              if (response.ok) {
+                                                alert('Document deleted successfully. You can now upload it again.');
+                                              } else {
+                                                alert('Failed to delete document. Please try again later.');
+                                              }
+                                            } catch (error) {
+                                              console.error('Error deleting document:', error);
+                                              alert('Error deleting document. Please try again later.');
+                                            }
+                                          }
+                                        }}
+                                        className="text-white bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-xs"
+                                      >
+                                        Delete Document
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                <p className="text-right mt-1 text-gray-500">Document ID: {citation.documentId}</p>
+                              </div>
+                            </details>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 )}

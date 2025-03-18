@@ -40,4 +40,17 @@ export interface Citation {
 export interface AIChatOptions {
   enableWebSearch: boolean;
   enableCitations: boolean;
+}
+
+export interface DocumentModel {
+  id: string;
+  type: 'text' | 'url' | 'pdf';
+  title: string;
+  content?: string | null;
+  url?: string | null;
+  processed: boolean;
+  courseId: string;
+  fileName?: string | null;
+  fileSize?: number | null;
+  _buffer?: Buffer; // Optional buffer field for direct processing
 } 

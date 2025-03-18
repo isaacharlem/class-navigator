@@ -3,12 +3,26 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { CourseWithChatCount } from '@/types/types';
+import type { Course } from '@prisma/client';
+
+// Define a more specific type that includes what we get from the API
+interface CourseWithCounts {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+  userId: string;
+  _count: {
+    chats: number;
+    documents: number;
+  };
+}
 
 export default function UploadDocumentPage() {
   const params = useParams();
   const router = useRouter();
-  const [course, setCourse] = useState<CourseWithChatCount | null>(null);
+  const [course, setCourse] = useState<CourseWithCounts | null>(null);
   const [name, setName] = useState('');
   const [type, setType] = useState('url');
   const [url, setUrl] = useState('');
@@ -81,17 +95,48 @@ export default function UploadDocumentPage() {
         throw new Error('File is required');
       }
 
-      // Process based on type
-      let documentData: any = {
-        name: name.trim(),
-        type,
-      };
+      // Handle PDF files specially
+      if (type === 'file' && file && 
+          (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'))) {
+        
+        // Create FormData for PDF upload
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('title', name.trim());
 
-      if (type === 'url') {
-        documentData.url = url.trim();
-      } else if (type === 'text') {
-        documentData.content = content.trim();
-      } else if (type === 'file' && file) {
+        // Use the specialized PDF upload endpoint
+        const response = await fetch(`/api/courses/${params.id}/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        // Handle response
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to upload PDF');
+        }
+        
+        const data = await response.json();
+        setSuccessMessage('Document uploaded successfully!');
+        
+        // Reset form
+        setName('');
+        setUrl('');
+        setContent('');
+        setFile(null);
+
+        // Navigate back to course page after a short delay
+        setTimeout(() => {
+          router.push(`/dashboard/courses/${params.id}`);
+          router.refresh();
+        }, 1500);
+        
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Process non-PDF files
+      if (type === 'file' && file) {
         // For a real implementation, we would upload the file to a storage service
         // and then process it as needed (extract text, etc.)
         // For demo, we'll read the file as text if it's not too large
@@ -101,24 +146,58 @@ export default function UploadDocumentPage() {
 
         // Update document type based on file extension
         const fileExt = file.name.split('.').pop()?.toLowerCase();
-        if (fileExt === 'pdf') {
-          documentData.type = 'pdf';
-        } else if (['txt', 'md', 'html', 'css', 'js', 'ts', 'json'].includes(fileExt || '')) {
-          documentData.type = 'text';
+        if (['txt', 'md', 'html', 'css', 'js', 'ts', 'json'].includes(fileExt || '')) {
+          // For text files, read and include content
+          const fileContent = await file.text();
+          
+          // Regular document upload
+          const documentData = {
+            name: name.trim(),
+            type: 'text',
+            content: fileContent
+          };
+          
+          const response = await fetch(`/api/courses/${params.id}/documents`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(documentData),
+          });
+
+          if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to upload document');
+          }
+
+          setSuccessMessage('Document uploaded successfully!');
+          
+          // Reset form
+          setName('');
+          setUrl('');
+          setContent('');
+          setFile(null);
+
+          // Navigate back to course page after a short delay
+          setTimeout(() => {
+            router.push(`/dashboard/courses/${params.id}`);
+            router.refresh();
+          }, 1500);
+          
+          setIsSubmitting(false);
+          return;
         } else {
           throw new Error('Unsupported file type. Supported types: PDF, TXT, MD, HTML, CSS, JS, TS, JSON');
         }
-
-        // For text files, read and include content
-        if (documentData.type === 'text') {
-          const fileContent = await file.text();
-          documentData.content = fileContent;
-        } else {
-          // For PDFs, we would process differently in a real implementation
-          // Here we're just simulating it with a placeholder
-          documentData.content = `Content of ${file.name} would be processed here`;
-        }
       }
+
+      // Handle URL and plain text types
+      const documentData = {
+        name: name.trim(),
+        type,
+        ...(type === 'url' ? { url: url.trim() } : {}),
+        ...(type === 'text' ? { content: content.trim() } : {})
+      };
 
       const response = await fetch(`/api/courses/${params.id}/documents`, {
         method: 'POST',
@@ -190,13 +269,13 @@ export default function UploadDocumentPage() {
       <div className="bg-white shadow rounded-lg p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="bg-red-50 border border-red-500 text-red-700 px-4 py-3 rounded">
+            <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">
               {error}
             </div>
           )}
 
           {successMessage && (
-            <div className="bg-green-50 border border-green-500 text-green-700 px-4 py-3 rounded">
+            <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-md text-sm">
               {successMessage}
             </div>
           )}

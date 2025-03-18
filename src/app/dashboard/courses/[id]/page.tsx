@@ -3,55 +3,95 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { CourseWithChatCount } from '@/types/types';
+import { CourseWithChatCount, DocumentModel } from '@/types/types';
 
 interface Document {
   id: string;
   name: string;
+  title?: string;
   type: string;
   url?: string | null;
+  createdAt: string;
+  processed?: boolean;
+}
+
+// Define extended course type to match what we get from the API
+interface ExtendedCourse extends CourseWithChatCount {
+  name: string;
+  description: string | null;
+  id: string;
   createdAt: string;
 }
 
 export default function CourseDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [course, setCourse] = useState<CourseWithChatCount | null>(null);
+  const [course, setCourse] = useState<ExtendedCourse | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchCourse = async () => {
-      try {
-        const [courseRes, docsRes] = await Promise.all([
-          fetch(`/api/courses/${params.id}`),
-          fetch(`/api/courses/${params.id}/documents`)
-        ]);
+  const fetchCourse = async () => {
+    try {
+      const [courseRes, docsRes] = await Promise.all([
+        fetch(`/api/courses/${params.id}`),
+        fetch(`/api/courses/${params.id}/documents`)
+      ]);
 
-        if (!courseRes.ok) {
-          throw new Error('Failed to fetch course details');
-        }
-
-        const courseData = await courseRes.json();
-        setCourse(courseData);
-        
-        if (docsRes.ok) {
-          const docsData = await docsRes.json();
-          setDocuments(docsData);
-        }
-      } catch (err) {
-        setError('Error loading course details. Please try again.');
-        console.error(err);
-      } finally {
-        setIsLoading(false);
+      if (!courseRes.ok) {
+        throw new Error('Failed to fetch course details');
       }
-    };
 
+      const courseData = await courseRes.json();
+      setCourse(courseData as ExtendedCourse);
+      
+      if (docsRes.ok) {
+        const docsData = await docsRes.json();
+        setDocuments(docsData);
+      }
+    } catch (err) {
+      setError('Error loading course details. Please try again.');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (params.id) {
       fetchCourse();
     }
   }, [params.id]);
+
+  // Poll for document processing status updates
+  useEffect(() => {
+    // Only start polling if we have documents and at least one is still processing
+    const hasProcessingDocuments = documents.some((doc: Document) => doc.processed === false);
+    
+    if (!hasProcessingDocuments || documents.length === 0) {
+      return;
+    }
+    
+    // Set up polling every 5 seconds
+    const pollInterval = setInterval(() => {
+      // Only fetch documents, not the whole course
+      fetch(`/api/courses/${params.id}/documents`)
+        .then(res => res.json())
+        .then(data => {
+          setDocuments(data);
+          // If all documents are processed, stop polling
+          if (!data.some((doc: Document) => doc.processed === false)) {
+            clearInterval(pollInterval);
+          }
+        })
+        .catch(err => {
+          console.error('Error polling for document updates:', err);
+        });
+    }, 5000);
+    
+    // Clean up the interval on component unmount
+    return () => clearInterval(pollInterval);
+  }, [params.id, documents]);
 
   const handleDelete = async () => {
     if (!window.confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
@@ -168,31 +208,51 @@ export default function CourseDetailPage() {
                           )}
                         </div>
                         <div>
-                          <h3 className="text-sm font-medium text-gray-900">{doc.name}</h3>
+                          <h3 className="text-sm font-medium text-gray-900">{doc.title || doc.name}</h3>
                           <p className="text-xs text-gray-500">
                             {new Date(doc.createdAt).toLocaleDateString()} • {doc.type.toUpperCase()}
                           </p>
                         </div>
                       </div>
-                      <div className="flex space-x-2">
-                        {doc.url && (
-                          <a
-                            href={doc.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 text-sm"
-                          >
-                            View
-                          </a>
+                      <div className="flex items-center space-x-2">
+                        {/* Document processing status indicator */}
+                        {doc.processed === false && (
+                          <span className="inline-flex items-center">
+                            <svg className="animate-spin h-4 w-4 text-yellow-500 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span className="text-xs text-yellow-600">Processing</span>
+                          </span>
                         )}
-                        <button
-                          onClick={() => {
-                            // Handle delete document
-                          }}
-                          className="text-red-600 hover:text-red-800 text-sm"
-                        >
-                          Delete
-                        </button>
+                        {doc.processed === true && (
+                          <span className="inline-flex items-center">
+                            <svg className="h-4 w-4 text-green-500 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            <span className="text-xs text-green-600">Processed</span>
+                          </span>
+                        )}
+                        <div className="flex space-x-2">
+                          {doc.url && (
+                            <a
+                              href={doc.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 text-sm"
+                            >
+                              View
+                            </a>
+                          )}
+                          <button
+                            onClick={() => {
+                              // Handle delete document
+                            }}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </li>
