@@ -1,23 +1,20 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { PrismaClient } from '@prisma/client';
-import { authOptions } from '../../../auth/[...nextauth]/route';
-import { processDocument } from '@/lib/documentProcessor';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { PrismaClient } from "@prisma/client";
+import { authOptions } from "../../../auth/[...nextauth]/route";
+import { processDocument } from "@/lib/documentProcessor";
 
 const prisma = new PrismaClient();
 
 // GET /api/courses/[id]/documents - Get all documents for a course
-export async function GET(
-  req: Request,
-  context: { params: { id: string } }
-) {
+export async function GET(req: Request, context: { params: { id: string } }) {
   try {
     const params = await context.params;
     const id = params.id;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     // Verify the course exists and belongs to the user
@@ -29,7 +26,7 @@ export async function GET(
     });
 
     if (!course) {
-      return NextResponse.json({ error: 'Course not found' }, { status: 404 });
+      return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
     // Get all documents for the course
@@ -38,16 +35,16 @@ export async function GET(
         courseId: id,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
     return NextResponse.json(documents);
   } catch (error) {
-    console.error('Failed to fetch documents:', error);
+    console.error("Failed to fetch documents:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch documents' },
-      { status: 500 }
+      { error: "Failed to fetch documents" },
+      { status: 500 },
     );
   } finally {
     await prisma.$disconnect();
@@ -55,24 +52,21 @@ export async function GET(
 }
 
 // POST /api/courses/[id]/documents - Create a new document for a course
-export async function POST(
-  req: Request,
-  context: { params: { id: string } }
-) {
+export async function POST(req: Request, context: { params: { id: string } }) {
   try {
     const params = await context.params;
     const id = params.id;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     // Check if this is a JSON request or form data
-    const contentType = req.headers.get('content-type') || '';
+    const contentType = req.headers.get("content-type") || "";
     let title, type, content, url;
 
-    if (contentType.includes('application/json')) {
+    if (contentType.includes("application/json")) {
       // Parse JSON body
       const body = await req.json();
       // Support both 'title' and 'name' fields for backward compatibility
@@ -84,30 +78,30 @@ export async function POST(
       // This might be a form submission from another part of the app
       // Return a more helpful error message
       return NextResponse.json(
-        { error: 'Use the PDF upload endpoint for file uploads' },
-        { status: 400 }
+        { error: "Use the PDF upload endpoint for file uploads" },
+        { status: 400 },
       );
     }
 
     if (!title) {
       return NextResponse.json(
         { error: 'Document title is required (use "title" field)' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Validate document based on type
-    if (type === 'url' && !url) {
+    if (type === "url" && !url) {
       return NextResponse.json(
-        { error: 'URL is required for URL document type' },
-        { status: 400 }
+        { error: "URL is required for URL document type" },
+        { status: 400 },
       );
     }
 
-    if (type === 'text' && !content) {
+    if (type === "text" && !content) {
       return NextResponse.json(
-        { error: 'Content is required for text document type' },
-        { status: 400 }
+        { error: "Content is required for text document type" },
+        { status: 400 },
       );
     }
 
@@ -120,14 +114,14 @@ export async function POST(
     });
 
     if (!course) {
-      return NextResponse.json({ error: 'Course not found' }, { status: 404 });
+      return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
     // Create the document
     const document = await prisma.document.create({
       data: {
         title,
-        type: type || 'text',
+        type: type || "text",
         content: content || null,
         url: url || null,
         processed: false, // Start as not processed
@@ -144,32 +138,35 @@ export async function POST(
         console.log(`Starting to process document ${document.id}`);
         await processDocument({
           ...document,
-          type: document.type as 'text' | 'url' | 'pdf'
+          type: document.type as "text" | "url" | "pdf",
         });
         console.log(`Document ${document.id} processed successfully`);
-        
+
         // Update the document status directly rather than relying on processDocument
         await prisma.document.update({
           where: { id: document.id },
           data: { processed: true },
         });
-        
+
         // Log the count of vector chunks created
         const vectorCount = await prisma.vectorStore.count({
-          where: { documentId: document.id }
+          where: { documentId: document.id },
         });
-        console.log(`Created ${vectorCount} vector chunks for document ${document.id}`);
+        console.log(
+          `Created ${vectorCount} vector chunks for document ${document.id}`,
+        );
       } catch (error) {
         console.error(`Error processing document ${document.id}:`, error);
-        
+
         // Update document with error status
         await prisma.document.update({
           where: { id: document.id },
-          data: { 
-            processed: false, 
-            content: document.content ? 
-              document.content + '\n\n[PROCESSING ERROR: Document could not be fully processed]' : 
-              '[PROCESSING ERROR: Document could not be processed]'
+          data: {
+            processed: false,
+            content: document.content
+              ? document.content +
+                "\n\n[PROCESSING ERROR: Document could not be fully processed]"
+              : "[PROCESSING ERROR: Document could not be processed]",
           },
         });
       } finally {
@@ -179,12 +176,12 @@ export async function POST(
 
     return NextResponse.json(document);
   } catch (error) {
-    console.error('Failed to create document:', error);
+    console.error("Failed to create document:", error);
     return NextResponse.json(
-      { error: 'Failed to create document' },
-      { status: 500 }
+      { error: "Failed to create document" },
+      { status: 500 },
     );
   } finally {
     await prisma.$disconnect();
   }
-} 
+}

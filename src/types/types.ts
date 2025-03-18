@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
-type Course = Awaited<ReturnType<PrismaClient['course']['findUnique']>>;
-type Chat = Awaited<ReturnType<PrismaClient['chat']['findUnique']>>;
-type Document = Awaited<ReturnType<PrismaClient['document']['findUnique']>>;
+type Course = Awaited<ReturnType<PrismaClient["course"]["findUnique"]>>;
+type Chat = Awaited<ReturnType<PrismaClient["chat"]["findUnique"]>>;
+type Document = Awaited<ReturnType<PrismaClient["document"]["findUnique"]>>;
 
 export interface CourseWithChatCount extends Course {
   _count: {
@@ -27,7 +27,7 @@ export interface DocumentWithChunks extends Document {
 }
 
 export interface ChatMessage {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   citations?: Citation[];
 }
@@ -44,7 +44,7 @@ export interface AIChatOptions {
 
 export interface DocumentModel {
   id: string;
-  type: 'text' | 'url' | 'pdf';
+  type: "text" | "url" | "pdf";
   title: string;
   content?: string | null;
   url?: string | null;
@@ -53,4 +53,4 @@ export interface DocumentModel {
   fileName?: string | null;
   fileSize?: number | null;
   _buffer?: Buffer; // Optional buffer field for direct processing
-} 
+}

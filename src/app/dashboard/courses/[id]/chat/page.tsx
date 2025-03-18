@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import ChatUI from '@/components/ChatUI';
-import { ChatMessage } from '@/types/types';
-import type { Course } from '@prisma/client';
+import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import ChatUI from "@/components/ChatUI";
+import { ChatMessage } from "@/types/types";
+import type { Course } from "@prisma/client";
 
 // Define a more specific type that matches the API response
 interface CourseWithCounts {
@@ -36,13 +36,13 @@ export default function CourseChat() {
         const response = await fetch(`/api/courses/${params.id}`);
 
         if (!response.ok) {
-          throw new Error('Failed to fetch course details');
+          throw new Error("Failed to fetch course details");
         }
 
         const courseData = await response.json();
         setCourse(courseData);
       } catch (err) {
-        setError('Error loading course details. Please try again.');
+        setError("Error loading course details. Please try again.");
         console.error(err);
       }
     };
@@ -51,18 +51,18 @@ export default function CourseChat() {
       try {
         // Create a new general chat or get the most recent one
         const response = await fetch(`/api/courses/${params.id}/chat`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            title: `Chat with ${course?.name || 'Course'}`,
-            type: 'general',
+            title: `Chat with ${course?.name || "Course"}`,
+            type: "general",
           }),
         });
 
         if (!response.ok) {
-          throw new Error('Failed to create or fetch chat');
+          throw new Error("Failed to create or fetch chat");
         }
 
         const chatData = await response.json();
@@ -70,15 +70,17 @@ export default function CourseChat() {
 
         // Fetch messages if the chat already exists
         if (chatData.id && chatData._count?.messages > 0) {
-          const messagesResponse = await fetch(`/api/chat/${chatData.id}/messages`);
-          
+          const messagesResponse = await fetch(
+            `/api/chat/${chatData.id}/messages`,
+          );
+
           if (messagesResponse.ok) {
             const messagesData = await messagesResponse.json();
             setMessages(messagesData);
           }
         }
       } catch (err) {
-        setError('Error setting up chat. Please try again.');
+        setError("Error setting up chat. Please try again.");
         console.error(err);
       } finally {
         setIsLoading(false);
@@ -106,7 +108,7 @@ export default function CourseChat() {
   if (error || !course) {
     return (
       <div className="bg-red-50 border border-red-500 text-red-700 px-4 py-3 rounded">
-        {error || 'Course not found'}
+        {error || "Course not found"}
       </div>
     );
   }
@@ -123,12 +125,23 @@ export default function CourseChat() {
     <div className="h-[calc(100vh-8rem)]">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <Link 
+          <Link
             href={`/dashboard/courses/${params.id}`}
             className="text-blue-600 hover:underline flex items-center"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 mr-1"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
             Back to {course.name}
           </Link>
@@ -151,13 +164,13 @@ export default function CourseChat() {
 
       <div className="bg-white shadow-lg rounded-lg h-full overflow-hidden border">
         {chatId && (
-          <ChatUI 
-            chatId={chatId} 
-            courseId={params.id as string} 
+          <ChatUI
+            chatId={chatId}
+            courseId={params.id as string}
             initialMessages={messages}
           />
         )}
       </div>
     </div>
   );
-} 
+}

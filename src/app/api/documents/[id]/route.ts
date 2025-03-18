@@ -1,21 +1,21 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { PrismaClient } from '@prisma/client';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { PrismaClient } from "@prisma/client";
+import { authOptions } from "../../auth/[...nextauth]/route";
 
 const prisma = new PrismaClient();
 
 // DELETE /api/documents/[id] - Delete a document
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { id } = params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     // Find the document
@@ -25,17 +25,20 @@ export async function DELETE(
     });
 
     if (!document) {
-      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: "Document not found" },
+        { status: 404 },
+      );
     }
 
     // Check if the user has access to this document
     if (document.course.userId !== session.user.id) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
     // Delete all vector store entries for this document first
     await prisma.vectorStore.deleteMany({
-      where: { documentId: id }
+      where: { documentId: id },
     });
 
     // Delete the document
@@ -43,17 +46,17 @@ export async function DELETE(
       where: { id },
     });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      message: 'Document deleted successfully' 
+      message: "Document deleted successfully",
     });
   } catch (error) {
-    console.error('Failed to delete document:', error);
+    console.error("Failed to delete document:", error);
     return NextResponse.json(
-      { error: 'Failed to delete document' },
-      { status: 500 }
+      { error: "Failed to delete document" },
+      { status: 500 },
     );
   } finally {
     await prisma.$disconnect();
   }
-} 
+}

@@ -25,4 +25,3 @@ Testing multiple pages for PDF.js extraction...
 ---
 
 This text preserves the formatting and structure as closely as possible based on the original document【4:0†temp-test.pdf】.
-
