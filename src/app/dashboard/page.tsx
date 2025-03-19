@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useSession } from 'next-auth/react';
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 
 interface Course {
   id: string;
@@ -35,12 +35,12 @@ export default function Dashboard() {
   useEffect(() => {
     if (session?.user) {
       // Fetch courses
-      fetch('/api/courses')
-        .then(res => res.json())
-        .then(data => {
+      fetch("/api/courses")
+        .then((res) => res.json())
+        .then((data) => {
           if (!data.error) {
             setCourses(data);
-            
+
             // Calculate total document count
             let docs = 0;
             data.forEach((course: Course) => {
@@ -49,7 +49,7 @@ export default function Dashboard() {
               }
             });
             setDocumentCount(docs);
-            
+
             // Calculate total chat count
             let chats = 0;
             data.forEach((course: Course) => {
@@ -60,20 +60,20 @@ export default function Dashboard() {
             setChatCount(chats);
           }
         })
-        .catch(error => {
-          console.error('Error fetching courses:', error);
+        .catch((error) => {
+          console.error("Error fetching courses:", error);
         });
-      
+
       // Fetch recent chats
-      fetch('/api/chats/recent?limit=5')
-        .then(res => res.json())
-        .then(data => {
+      fetch("/api/chats/recent?limit=5")
+        .then((res) => res.json())
+        .then((data) => {
           if (!data.error) {
             setRecentChats(data);
           }
         })
-        .catch(error => {
-          console.error('Error fetching chats:', error);
+        .catch((error) => {
+          console.error("Error fetching chats:", error);
         })
         .finally(() => {
           setIsLoading(false);
@@ -82,6 +82,34 @@ export default function Dashboard() {
       setIsLoading(false);
     }
   }, [session]);
+
+  const deleteChat = async (chatId: string, e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent the link navigation
+
+    if (
+      confirm(
+        "Are you sure you want to delete this chat? This action cannot be undone.",
+      )
+    ) {
+      try {
+        const response = await fetch(`/api/chat/${chatId}`, {
+          method: "DELETE",
+        });
+
+        if (response.ok) {
+          // Remove the chat from the UI
+          setRecentChats(recentChats.filter((chat) => chat.id !== chatId));
+
+          // Update the chat count
+          setChatCount((prevCount) => Math.max(0, prevCount - 1));
+        } else {
+          console.error("Failed to delete chat");
+        }
+      } catch (err) {
+        console.error("Error deleting chat:", err);
+      }
+    }
+  };
 
   if (isLoading) {
     return (
@@ -97,7 +125,9 @@ export default function Dashboard() {
       <div className="bg-white shadow rounded-lg p-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500">Welcome, {session?.user?.name || 'User'}</p>
+          <p className="text-gray-500">
+            Welcome, {session?.user?.name || "User"}
+          </p>
         </div>
 
         {/* Overview stats */}
@@ -121,31 +151,65 @@ export default function Dashboard() {
       <div className="bg-white shadow rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900">Recent Chats</h2>
-          <Link href="/dashboard/chats" className="text-blue-600 hover:underline text-sm">
+          <Link
+            href="/dashboard/chats"
+            className="text-blue-600 hover:underline text-sm"
+          >
             View all
           </Link>
         </div>
 
         {recentChats.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">No recent chats found.</p>
+          <p className="text-gray-500 text-center py-4">
+            No recent chats found.
+          </p>
         ) : (
           <div className="space-y-4">
             {recentChats.map((chat) => (
-              <Link
+              <div
                 key={chat.id}
-                href={`/dashboard/courses/${chat.course.id}/chat/${chat.id}`}
-                className="block border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
+                className="relative border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
               >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium text-gray-900">{chat.title}</h3>
-                    <p className="text-sm text-gray-500">{chat.course.name}</p>
+                <Link
+                  href={`/dashboard/courses/${chat.course.id}/chat/${chat.id}`}
+                  className="block"
+                >
+                  <div className="flex justify-between items-start pr-6">
+                    <div>
+                      <h3 className="font-medium text-gray-900">
+                        {chat.title}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        {chat.course.name}
+                      </p>
+                    </div>
+                    <span className="text-xs text-gray-400">
+                      {new Date(chat.updatedAt).toLocaleDateString()}
+                    </span>
                   </div>
-                  <span className="text-xs text-gray-400">
-                    {new Date(chat.updatedAt).toLocaleDateString()}
-                  </span>
-                </div>
-              </Link>
+                </Link>
+                {/* Delete button */}
+                <button
+                  onClick={(e) => deleteChat(chat.id, e)}
+                  className="absolute top-4 right-4 text-red-500 hover:text-red-700 transition"
+                  aria-label="Delete chat"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                </button>
+              </div>
             ))}
           </div>
         )}
@@ -155,14 +219,19 @@ export default function Dashboard() {
       <div className="bg-white shadow rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900">Your Courses</h2>
-          <Link href="/dashboard/courses" className="text-blue-600 hover:underline text-sm">
+          <Link
+            href="/dashboard/courses"
+            className="text-blue-600 hover:underline text-sm"
+          >
             View all
           </Link>
         </div>
 
         {courses.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-gray-500 mb-4">You haven't added any courses yet.</p>
+            <p className="text-gray-500 mb-4">
+              You haven't added any courses yet.
+            </p>
             <Link
               href="/dashboard/courses/new"
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
@@ -179,11 +248,15 @@ export default function Dashboard() {
                 className="block border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
               >
                 <h3 className="font-medium text-gray-900">{course.name}</h3>
-                <p className="text-sm text-gray-500 line-clamp-2 mt-1">{course.description || 'No description'}</p>
+                <p className="text-sm text-gray-500 line-clamp-2 mt-1">
+                  {course.description || "No description"}
+                </p>
                 <div className="mt-2 text-xs text-gray-400">
-                  {course._count?.chats || 0} chat{(course._count?.chats || 0) !== 1 ? 's' : ''}
-                  {' • '}
-                  {course._count?.documents || 0} document{(course._count?.documents || 0) !== 1 ? 's' : ''}
+                  {course._count?.chats || 0} chat
+                  {(course._count?.chats || 0) !== 1 ? "s" : ""}
+                  {" • "}
+                  {course._count?.documents || 0} document
+                  {(course._count?.documents || 0) !== 1 ? "s" : ""}
                 </div>
               </Link>
             ))}
@@ -198,13 +271,20 @@ export default function Dashboard() {
                 stroke="currentColor"
                 className="h-8 w-8 text-gray-400 mb-2"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
-              <span className="text-sm font-medium text-gray-900">Add New Course</span>
+              <span className="text-sm font-medium text-gray-900">
+                Add New Course
+              </span>
             </Link>
           </div>
         )}
       </div>
     </div>
   );
-} 
+}

@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { PrismaClient } from '@prisma/client';
-import { authOptions } from '../../../auth/[...nextauth]/route';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { PrismaClient } from "@prisma/client";
+import { authOptions } from "../../../auth/[...nextauth]/route";
 
 const prisma = new PrismaClient();
 
@@ -23,16 +23,14 @@ interface MessageWithCitations {
 }
 
 // GET /api/chat/[id]/messages - Get all messages for a chat
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: Request, context: { params: { id: string } }) {
   try {
-    const { id } = params;
+    const params = await context.params;
+    const id = params.id;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     // Verify the chat exists and belongs to the user
@@ -44,7 +42,7 @@ export async function GET(
     });
 
     if (!chat) {
-      return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
 
     // Get all messages for the chat
@@ -53,7 +51,7 @@ export async function GET(
         chatId: id,
       },
       orderBy: {
-        createdAt: 'asc',
+        createdAt: "asc",
       },
       include: {
         citations: true,
@@ -62,12 +60,12 @@ export async function GET(
 
     return NextResponse.json(messages);
   } catch (error) {
-    console.error('Failed to fetch messages:', error);
+    console.error("Failed to fetch messages:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch messages' },
-      { status: 500 }
+      { error: "Failed to fetch messages" },
+      { status: 500 },
     );
   } finally {
     await prisma.$disconnect();
   }
-} 
+}

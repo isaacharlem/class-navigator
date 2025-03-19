@@ -190,8 +190,8 @@ export async function processPdfWithAssistant(
 
       // Clean up
       try {
-        // Delete the local temp file
-        fs.unlinkSync(tempFilePath);
+        // Don't delete the local temp file - keep it for future downloads
+        // fs.unlinkSync(tempFilePath);
 
         // Delete the file from OpenAI (optional - can keep it for future reference)
         // await openai.files.del(file.id);
@@ -204,10 +204,10 @@ export async function processPdfWithAssistant(
 
       return extractedText.trim();
     } finally {
-      // Ensure temp file is deleted even if processing fails
-      if (fs.existsSync(tempFilePath)) {
-        fs.unlinkSync(tempFilePath);
-      }
+      // Don't delete the temp file in the finally block either
+      // if (fs.existsSync(tempFilePath)) {
+      //   fs.unlinkSync(tempFilePath);
+      // }
     }
   } catch (error) {
     console.error("Error processing PDF with assistant:", error);

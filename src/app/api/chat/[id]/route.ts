@@ -7,6 +7,7 @@ import { AIChatOptions } from "@/types/types";
 import { semanticSearch } from "@/lib/semanticSearch";
 import axios from "axios";
 import OpenAI from "openai";
+import { ChatOpenAI } from "@langchain/openai";
 
 const prisma = new PrismaClient();
 const openai = new OpenAI({
@@ -67,6 +68,49 @@ export async function POST(req: Request, context: { params: { id: string } }) {
       },
       take: 10, // Limit to 10 most recent messages
     });
+
+    // Check if this is the first message in a general chat
+    if (chat.type === "general" && chatHistory.length === 1) {
+      // Update the chat title based on the first message
+      try {
+        const chatModel = new ChatOpenAI({
+          openAIApiKey: process.env.OPENAI_API_KEY,
+          modelName: "gpt-3.5-turbo",
+          temperature: 0.7,
+        });
+
+        const response = await chatModel.invoke([
+          [
+            "system",
+            `You are a helpful assistant that generates concise, descriptive titles for chat conversations.
+            The title should be 3-6 words and reflect the topic or question being discussed.`,
+          ],
+          [
+            "user",
+            `Generate a short, descriptive title for a chat about "${chat.course.name}" that starts with this message: "${message}"`,
+          ],
+        ]);
+
+        let title = response.content.toString().trim();
+
+        // Remove quotes if present
+        title = title.replace(/^["'](.*)["']$/, "$1");
+
+        // Truncate if too long
+        if (title.length > 50) {
+          title = title.substring(0, 47) + "...";
+        }
+
+        // Update chat title
+        await prisma.chat.update({
+          where: { id: chat.id },
+          data: { title },
+        });
+      } catch (error) {
+        console.error("Error generating chat title:", error);
+        // Continue even if title generation fails
+      }
+    }
 
     // Initialize OpenAI chat model
     let assistantContent = "";
@@ -189,30 +233,32 @@ Be helpful, clear, and educational in your responses. Always respond based on th
         // Remove any citations we're finding in the actual database
         // This is because we'll create proper citations in the database
         assistantContent = assistantContent.replace(/\[.*?\]/g, "");
-        
+
         // Process citations for PDF documents
         const updatedCitations = await Promise.all(
           citations.map(async (citation) => {
             // Get document details to identify if it's a PDF
             const document = await prisma.document.findUnique({
               where: { id: citation.documentId },
-              select: { type: true, processed: true, title: true }
+              select: { type: true, processed: true, title: true },
             });
-            
-            // For PDF documents, improve the citation format 
-            if (document?.type === 'pdf') {
+
+            // For PDF documents, improve the citation format
+            if (document?.type === "pdf") {
               return {
                 documentId: citation.documentId,
-                sourceText: citation.sourceText.includes("system found this document relevant, but actual content is not available") 
-                  ? `From "${document.title}":\n${citation.sourceText}` 
-                  : citation.sourceText
+                sourceText: citation.sourceText.includes(
+                  "system found this document relevant, but actual content is not available",
+                )
+                  ? `From "${document.title}":\n${citation.sourceText}`
+                  : citation.sourceText,
               };
             }
-            
+
             return citation;
-          })
+          }),
         );
-        
+
         // Use updated citations
         citations = updatedCitations;
       }
@@ -360,6 +406,51 @@ export async function GET(req: Request, context: { params: { id: string } }) {
     console.error("Failed to fetch chat:", error);
     return NextResponse.json(
       { error: "Failed to fetch chat" },
+      { status: 500 },
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+// DELETE /api/chat/[id] - Delete a chat
+export async function DELETE(
+  req: Request,
+  context: { params: { id: string } },
+) {
+  try {
+    const params = await context.params;
+    const id = params.id;
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    // Verify the chat exists and belongs to the user
+    const chat = await prisma.chat.findFirst({
+      where: {
+        id,
+        userId: session.user.id,
+      },
+    });
+
+    if (!chat) {
+      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+    }
+
+    // Delete the chat (messages will be cascade deleted due to the relation)
+    await prisma.chat.delete({
+      where: {
+        id,
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete chat:", error);
+    return NextResponse.json(
+      { error: "Failed to delete chat" },
       { status: 500 },
     );
   } finally {

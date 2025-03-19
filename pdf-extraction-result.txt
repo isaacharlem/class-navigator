@@ -1,4 +1,4 @@
-Here's the extracted text from the PDF document:
+Here is the extracted text from the PDF document, maintaining its structure and formatting:
 
 ---
 
@@ -20,8 +20,4 @@ Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos
 
 This is the second page of the test PDF document.
 
-Testing multiple pages for PDF.js extraction...
-
----
-
-This text preserves the formatting and structure as closely as possible based on the original document【4:0†temp-test.pdf】.
+Testing multiple pages for PDF.js extraction...【4:0†temp-test.pdf】

@@ -140,9 +140,8 @@ export default function CourseChat() {
       // Only attempt to delete the chat if:
       // 1. It should be cleaned up (no messages sent)
       // 2. We have a chatId
-      // 3. No messages were sent during this session
-      // 4. This was a newly created chat (not a reused one)
-      if (shouldCleanupChat.current && chatId && !hasUsedChat.current && isNewChat.current) {
+      // 3. This was a newly created chat (not a reused one)
+      if (shouldCleanupChat.current && chatId && isNewChat.current) {
         console.log(`Cleaning up empty general chat: ${chatId}`);
         fetch(`/api/chat/${chatId}/empty`, {
           method: "DELETE",

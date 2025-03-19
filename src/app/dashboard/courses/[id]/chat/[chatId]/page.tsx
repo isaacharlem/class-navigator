@@ -93,7 +93,7 @@ export default function ChatPage() {
 
     // Cleanup function for empty chats
     return () => {
-      if (shouldCleanupChat.current && chatIdValue && !hasInteracted.current) {
+      if (shouldCleanupChat.current && chatIdValue) {
         console.log(`Page unmounting, checking if chat ${chatIdValue} is empty and should be deleted`);
         fetch(`/api/chat/${chatIdValue}/empty`, {
           method: "DELETE",

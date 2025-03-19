@@ -13,6 +13,18 @@ interface Document {
   url?: string | null;
   createdAt: string;
   processed?: boolean;
+  content?: string | null;
+}
+
+interface Chat {
+  id: string;
+  title: string;
+  type: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    messages: number;
+  };
 }
 
 // Define extended course type to match what we get from the API
@@ -28,8 +40,14 @@ export default function CourseDetailPage() {
   const router = useRouter();
   const [course, setCourse] = useState<ExtendedCourse | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [chats, setChats] = useState<Chat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [loadingChats, setLoadingChats] = useState(false);
+  const [showTextDialog, setShowTextDialog] = useState(false);
+  const [selectedTextDocument, setSelectedTextDocument] = useState<Document | null>(null);
+  const [loadingDocumentContent, setLoadingDocumentContent] = useState(false);
 
   const fetchCourse = async () => {
     try {
@@ -62,6 +80,37 @@ export default function CourseDetailPage() {
       fetchCourse();
     }
   }, [params.id]);
+
+  // Fetch course chats when the chat modal is opened
+  const fetchCourseChats = async () => {
+    if (!params.id) return;
+
+    setLoadingChats(true);
+    try {
+      const res = await fetch(`/api/courses/${params.id}/chat`);
+      if (res.ok) {
+        const data = await res.json();
+        setChats(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch course chats:", err);
+    } finally {
+      setLoadingChats(false);
+    }
+  };
+
+  const handleChatClick = () => {
+    setShowChatModal(true);
+    fetchCourseChats();
+  };
+
+  const createNewChat = () => {
+    router.push(`/dashboard/courses/${params.id}/chat?forceNew=true`);
+  };
+
+  const openExistingChat = (chatId: string) => {
+    router.push(`/dashboard/courses/${params.id}/chat/${chatId}`);
+  };
 
   // Poll for document processing status updates
   useEffect(() => {
@@ -121,6 +170,107 @@ export default function CourseDetailPage() {
     }
   };
 
+  const handleDeleteDocument = async (docId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (
+      window.confirm(
+        "Are you sure you want to delete this document? This action cannot be undone.",
+      )
+    ) {
+      try {
+        const response = await fetch(`/api/documents/${docId}`, {
+          method: "DELETE",
+        });
+
+        if (response.ok) {
+          // Remove the document from the documents list
+          setDocuments(documents.filter((doc) => doc.id !== docId));
+        } else {
+          console.error("Failed to delete document");
+          setError("Failed to delete document. Please try again.");
+        }
+      } catch (err) {
+        console.error("Error deleting document:", err);
+        setError("Error deleting document. Please try again.");
+      }
+    }
+  };
+
+  const handleDocumentClick = (doc: Document) => {
+    if (doc.type === 'pdf') {
+      // For PDFs, create a file URL and open in new tab
+      const fileUrl = `/api/documents/${doc.id}/file`;
+      console.log('Opening PDF document with ID:', doc.id);
+      
+      // First try to fetch to check if the document is available
+      fetch(fileUrl)
+        .then(response => {
+          if (response.ok) {
+            // If document is available, open in new tab
+            window.open(fileUrl, '_blank');
+          } else {
+            // If there's an error, parse the JSON response
+            return response.json().then(errorData => {
+              throw new Error(errorData.message || 'Failed to load PDF document');
+            });
+          }
+        })
+        .catch(error => {
+          console.error('Error opening PDF:', error);
+          alert(error.message || 'Failed to load PDF document. The file may not be available.');
+        });
+    }
+    else if (doc.type === 'text') {
+      // For text documents, show in a dialog
+      setSelectedTextDocument(doc);
+      setShowTextDialog(true);
+    }
+    else if (doc.url) {
+      // For URL documents, open the URL directly
+      console.log('Opening document with URL:', doc.url);
+      window.open(doc.url, '_blank');
+    } 
+    else {
+      console.error('Document has no URL and is not a PDF:', doc);
+      // Show an error message to the user
+      alert('This document cannot be opened. It may still be processing or the file is unavailable.');
+    }
+  };
+
+  const closeTextDialog = () => {
+    setShowTextDialog(false);
+    setSelectedTextDocument(null);
+  };
+
+  const fetchDocumentContent = async (docId: string) => {
+    if (!docId) return;
+    
+    setLoadingDocumentContent(true);
+    try {
+      const response = await fetch(`/api/documents/${docId}`);
+      if (response.ok) {
+        const data = await response.json();
+        // Update the selected document with its content
+        setSelectedTextDocument(prev => prev ? { ...prev, content: data.content } : null);
+      } else {
+        console.error('Failed to fetch document content');
+      }
+    } catch (err) {
+      console.error('Error fetching document content:', err);
+    } finally {
+      setLoadingDocumentContent(false);
+    }
+  };
+  
+  // Fetch content when a text document is selected
+  useEffect(() => {
+    if (selectedTextDocument && selectedTextDocument.type === 'text' && !selectedTextDocument.content) {
+      fetchDocumentContent(selectedTextDocument.id);
+    }
+  }, [selectedTextDocument]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -161,14 +311,186 @@ export default function CourseDetailPage() {
           >
             Delete
           </button>
-          <Link
-            href={`/dashboard/courses/${course.id}/chat`}
+          <button
+            onClick={handleChatClick}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
           >
             Chat with AI
-          </Link>
+          </button>
         </div>
       </div>
+
+      {/* Chat Selection Modal */}
+      {showChatModal && (
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50"
+            onClick={() => setShowChatModal(false)}
+          ></div>
+          <div className="relative mt-24 mx-auto max-w-lg p-6 bg-white rounded-lg shadow-xl">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Chat with Course AI
+            </h2>
+
+            <div className="space-y-4">
+              <button
+                onClick={createNewChat}
+                className="w-full flex items-center justify-between px-4 py-3 bg-indigo-50 hover:bg-indigo-100 rounded-md transition"
+              >
+                <div className="flex items-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 text-indigo-600 mr-3"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span className="font-medium">Create a new chat</span>
+                </div>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-indigo-600"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+
+              <div>
+                <h3 className="text-md font-medium text-gray-700 mb-2">
+                  Continue an existing chat
+                </h3>
+
+                {loadingChats ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500 mx-auto"></div>
+                  </div>
+                ) : chats.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-3">
+                    No existing chats found
+                  </p>
+                ) : (
+                  <div className="max-h-60 overflow-y-auto">
+                    <ul className="space-y-2">
+                      {chats.map((chat) => (
+                        <li key={chat.id}>
+                          <button
+                            onClick={() => openExistingChat(chat.id)}
+                            className="w-full flex items-center justify-between px-4 py-2 hover:bg-gray-50 rounded-md transition"
+                          >
+                            <div className="flex items-center">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5 text-gray-400 mr-3"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                              <div className="text-left">
+                                <span className="block font-medium text-gray-800">
+                                  {chat.title}
+                                </span>
+                                <span className="block text-xs text-gray-500">
+                                  {new Date(
+                                    chat.updatedAt,
+                                  ).toLocaleDateString()}{" "}
+                                  • {chat._count?.messages || 0} messages
+                                </span>
+                              </div>
+                            </div>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-5 w-5 text-gray-400"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowChatModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Text Document Dialog */}
+      {showTextDialog && selectedTextDocument && (
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50"
+            onClick={closeTextDialog}
+          ></div>
+          <div className="relative mt-8 mx-auto max-w-5xl p-4 bg-white rounded-lg shadow-xl h-5/6 flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {selectedTextDocument.title || selectedTextDocument.name}
+              </h2>
+              <button 
+                onClick={closeTextDialog}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="flex-grow overflow-auto">
+              {loadingDocumentContent ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                </div>
+              ) : (
+                <pre className="whitespace-pre-wrap font-mono text-sm p-4 bg-gray-50 rounded">
+                  {selectedTextDocument.content || "This document's content is not available."}
+                </pre>
+              )}
+            </div>
+            
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={closeTextDialog}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Documents section */}
@@ -201,7 +523,11 @@ export default function CourseDetailPage() {
             ) : (
               <ul className="divide-y divide-gray-200">
                 {documents.map((doc) => (
-                  <li key={doc.id} className="p-4 hover:bg-gray-50">
+                  <li 
+                    key={doc.id} 
+                    className="p-4 hover:bg-gray-50 cursor-pointer" 
+                    onClick={() => handleDocumentClick(doc)}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 mr-3">
@@ -310,17 +636,30 @@ export default function CourseDetailPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:text-blue-800 text-sm"
+                              onClick={(e) => e.stopPropagation()}
                             >
                               View
                             </a>
                           )}
                           <button
-                            onClick={() => {
-                              // Handle delete document
-                            }}
-                            className="text-red-600 hover:text-red-800 text-sm"
+                            onClick={(e) => handleDeleteDocument(doc.id, e)}
+                            className="text-red-500 hover:text-red-700 transition"
+                            aria-label="Delete document"
                           >
-                            Delete
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-5 w-5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
                           </button>
                         </div>
                       </div>
@@ -366,12 +705,12 @@ export default function CourseDetailPage() {
               href={`/dashboard/courses/${course.id}/chat/new`}
               className="w-full mb-4 inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
             >
-              New Chat
+              New Assignment Chat
             </Link>
 
             <div className="mt-4">
               <Link
-                href={`/dashboard/courses/${course.id}/chats`}
+                href={`/dashboard/chats`}
                 className="text-blue-600 hover:text-blue-800 text-sm"
               >
                 View all chats

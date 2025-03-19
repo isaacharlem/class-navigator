@@ -27,9 +27,11 @@ export interface DocumentWithChunks extends Document {
 }
 
 export interface ChatMessage {
+  id?: string;
   role: "user" | "assistant";
   content: string;
   citations?: Citation[];
+  createdAt?: string;
 }
 
 export interface Citation {

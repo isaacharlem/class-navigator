@@ -48,6 +48,29 @@ The `main` branch is protected and does not allow direct commits. All changes mu
 * Start with a verb in the present tense (e.g., "Add feature" not "Added feature")
 * Reference issue numbers in commits where applicable
 
+## Project Structure
+
+- `/src/app`: Next.js application routes and pages
+- `/src/components`: Reusable React components
+- `/src/lib`: Utility functions and services
+- `/src/types`: TypeScript type definitions
+- `/prisma`: Database schema and migrations
+
+## PDF Processing
+
+This project handles PDF processing using the OpenAI Assistant API. To test this functionality:
+
+1. Place a test PDF file in either:
+   - `/uploads/test.pdf`
+   - `/test.pdf`
+
+2. Run one of the test scripts:
+   ```bash
+   npm run pdf:test
+   # or
+   npm run pdf:assistant-test
+   ```
+
 ## Code Style
 
 This project uses ESLint and Prettier for code formatting and style checking. Make sure to run these tools before submitting:

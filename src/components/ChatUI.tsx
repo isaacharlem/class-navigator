@@ -50,8 +50,9 @@ export default function ChatUI({
   // Check for empty chat on unmount
   useEffect(() => {
     return () => {
-      // Only check for deletion if no interaction happened and chat was initially empty
-      if (!hasInteracted.current && !hasSentMessage.current) {
+      // Always check for deletion of empty chats when unmounting, regardless of interaction
+      // This ensures any navigation away from an empty chat will trigger deletion
+      if (!hasSentMessage.current) {
         console.log(`ChatUI unmounting, checking if chat ${chatId} is empty and should be deleted`);
         
         // Call the API to delete the chat if it's empty
