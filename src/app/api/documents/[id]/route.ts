@@ -6,10 +6,7 @@ import { authOptions } from "../../auth/[...nextauth]/route";
 const prisma = new PrismaClient();
 
 // GET /api/documents/[id] - Get document details
-export async function GET(
-  req: Request,
-  context: { params: { id: string } },
-) {
+export async function GET(req: Request, context: { params: { id: string } }) {
   try {
     const params = await context.params;
     const { id } = params;

@@ -46,7 +46,8 @@ export default function CourseDetailPage() {
   const [showChatModal, setShowChatModal] = useState(false);
   const [loadingChats, setLoadingChats] = useState(false);
   const [showTextDialog, setShowTextDialog] = useState(false);
-  const [selectedTextDocument, setSelectedTextDocument] = useState<Document | null>(null);
+  const [selectedTextDocument, setSelectedTextDocument] =
+    useState<Document | null>(null);
   const [loadingDocumentContent, setLoadingDocumentContent] = useState(false);
 
   const fetchCourse = async () => {
@@ -199,43 +200,47 @@ export default function CourseDetailPage() {
   };
 
   const handleDocumentClick = (doc: Document) => {
-    if (doc.type === 'pdf') {
+    if (doc.type === "pdf") {
       // For PDFs, create a file URL and open in new tab
       const fileUrl = `/api/documents/${doc.id}/file`;
-      console.log('Opening PDF document with ID:', doc.id);
-      
+      console.log("Opening PDF document with ID:", doc.id);
+
       // First try to fetch to check if the document is available
       fetch(fileUrl)
-        .then(response => {
+        .then((response) => {
           if (response.ok) {
             // If document is available, open in new tab
-            window.open(fileUrl, '_blank');
+            window.open(fileUrl, "_blank");
           } else {
             // If there's an error, parse the JSON response
-            return response.json().then(errorData => {
-              throw new Error(errorData.message || 'Failed to load PDF document');
+            return response.json().then((errorData) => {
+              throw new Error(
+                errorData.message || "Failed to load PDF document",
+              );
             });
           }
         })
-        .catch(error => {
-          console.error('Error opening PDF:', error);
-          alert(error.message || 'Failed to load PDF document. The file may not be available.');
+        .catch((error) => {
+          console.error("Error opening PDF:", error);
+          alert(
+            error.message ||
+              "Failed to load PDF document. The file may not be available.",
+          );
         });
-    }
-    else if (doc.type === 'text') {
+    } else if (doc.type === "text") {
       // For text documents, show in a dialog
       setSelectedTextDocument(doc);
       setShowTextDialog(true);
-    }
-    else if (doc.url) {
+    } else if (doc.url) {
       // For URL documents, open the URL directly
-      console.log('Opening document with URL:', doc.url);
-      window.open(doc.url, '_blank');
-    } 
-    else {
-      console.error('Document has no URL and is not a PDF:', doc);
+      console.log("Opening document with URL:", doc.url);
+      window.open(doc.url, "_blank");
+    } else {
+      console.error("Document has no URL and is not a PDF:", doc);
       // Show an error message to the user
-      alert('This document cannot be opened. It may still be processing or the file is unavailable.');
+      alert(
+        "This document cannot be opened. It may still be processing or the file is unavailable.",
+      );
     }
   };
 
@@ -246,27 +251,33 @@ export default function CourseDetailPage() {
 
   const fetchDocumentContent = async (docId: string) => {
     if (!docId) return;
-    
+
     setLoadingDocumentContent(true);
     try {
       const response = await fetch(`/api/documents/${docId}`);
       if (response.ok) {
         const data = await response.json();
         // Update the selected document with its content
-        setSelectedTextDocument(prev => prev ? { ...prev, content: data.content } : null);
+        setSelectedTextDocument((prev) =>
+          prev ? { ...prev, content: data.content } : null,
+        );
       } else {
-        console.error('Failed to fetch document content');
+        console.error("Failed to fetch document content");
       }
     } catch (err) {
-      console.error('Error fetching document content:', err);
+      console.error("Error fetching document content:", err);
     } finally {
       setLoadingDocumentContent(false);
     }
   };
-  
+
   // Fetch content when a text document is selected
   useEffect(() => {
-    if (selectedTextDocument && selectedTextDocument.type === 'text' && !selectedTextDocument.content) {
+    if (
+      selectedTextDocument &&
+      selectedTextDocument.type === "text" &&
+      !selectedTextDocument.content
+    ) {
       fetchDocumentContent(selectedTextDocument.id);
     }
   }, [selectedTextDocument]);
@@ -458,16 +469,27 @@ export default function CourseDetailPage() {
               <h2 className="text-xl font-semibold text-gray-900">
                 {selectedTextDocument.title || selectedTextDocument.name}
               </h2>
-              <button 
+              <button
                 onClick={closeTextDialog}
                 className="text-gray-500 hover:text-gray-700"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
-            
+
             <div className="flex-grow overflow-auto">
               {loadingDocumentContent ? (
                 <div className="h-full flex items-center justify-center">
@@ -475,11 +497,12 @@ export default function CourseDetailPage() {
                 </div>
               ) : (
                 <pre className="whitespace-pre-wrap font-mono text-sm p-4 bg-gray-50 rounded">
-                  {selectedTextDocument.content || "This document's content is not available."}
+                  {selectedTextDocument.content ||
+                    "This document's content is not available."}
                 </pre>
               )}
             </div>
-            
+
             <div className="mt-4 flex justify-end">
               <button
                 onClick={closeTextDialog}
@@ -523,9 +546,9 @@ export default function CourseDetailPage() {
             ) : (
               <ul className="divide-y divide-gray-200">
                 {documents.map((doc) => (
-                  <li 
-                    key={doc.id} 
-                    className="p-4 hover:bg-gray-50 cursor-pointer" 
+                  <li
+                    key={doc.id}
+                    className="p-4 hover:bg-gray-50 cursor-pointer"
                     onClick={() => handleDocumentClick(doc)}
                   >
                     <div className="flex items-center justify-between">

@@ -77,7 +77,9 @@ export default function ChatPage() {
           // If we loaded the chat and there are no messages, enable cleanup
           if (data.length === 0) {
             shouldCleanupChat.current = true;
-            console.log(`Chat ${chatIdValue} has no messages, will check for deletion on unmount`);
+            console.log(
+              `Chat ${chatIdValue} has no messages, will check for deletion on unmount`,
+            );
           } else {
             shouldCleanupChat.current = false;
           }
@@ -94,10 +96,12 @@ export default function ChatPage() {
     // Cleanup function for empty chats
     return () => {
       if (shouldCleanupChat.current && chatIdValue) {
-        console.log(`Page unmounting, checking if chat ${chatIdValue} is empty and should be deleted`);
+        console.log(
+          `Page unmounting, checking if chat ${chatIdValue} is empty and should be deleted`,
+        );
         fetch(`/api/chat/${chatIdValue}/empty`, {
           method: "DELETE",
-        }).catch(error => {
+        }).catch((error) => {
           console.error("Error cleaning up empty chat:", error);
         });
       }

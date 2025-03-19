@@ -80,16 +80,18 @@ export default function CourseChat() {
         }
 
         const chatData = await response.json();
-        
+
         // Set the chatId
         setChatId(chatData.id);
-        
+
         // Determine if this is a new or existing chat based on message count
         const isExistingChat = chatData._count?.messages > 0;
-        
+
         // For existing chats, don't attempt cleanup
         if (isExistingChat) {
-          console.log(`Found existing general chat with ${chatData._count.messages} messages`);
+          console.log(
+            `Found existing general chat with ${chatData._count.messages} messages`,
+          );
           shouldCleanupChat.current = false;
           hasUsedChat.current = true;
           isNewChat.current = false;
@@ -108,7 +110,7 @@ export default function CourseChat() {
           if (messagesResponse.ok) {
             const messagesData = await messagesResponse.json();
             setMessages(messagesData);
-            
+
             // Double-check: if chat has messages, don't delete it when leaving
             if (messagesData.length > 0) {
               shouldCleanupChat.current = false;
@@ -136,7 +138,7 @@ export default function CourseChat() {
     // Cleanup function for component unmount
     return () => {
       chatCreationAttempted.current = false;
-      
+
       // Only attempt to delete the chat if:
       // 1. It should be cleaned up (no messages sent)
       // 2. We have a chatId
@@ -145,7 +147,7 @@ export default function CourseChat() {
         console.log(`Cleaning up empty general chat: ${chatId}`);
         fetch(`/api/chat/${chatId}/empty`, {
           method: "DELETE",
-        }).catch(error => {
+        }).catch((error) => {
           console.error("Error cleaning up empty chat:", error);
         });
       }

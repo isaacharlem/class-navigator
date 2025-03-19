@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 
 interface DocumentPreviewProps {
   document: {
@@ -11,31 +11,38 @@ interface DocumentPreviewProps {
   onClose: () => void;
 }
 
-export default function DocumentPreview({ document, onClose }: DocumentPreviewProps) {
+export default function DocumentPreview({
+  document,
+  onClose,
+}: DocumentPreviewProps) {
   const [textContent, setTextContent] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Fetch text content for text documents
   useEffect(() => {
-    if (document.type === 'text' && document.url) {
+    if (document.type === "text" && document.url) {
       setIsLoading(true);
       setError(null);
-      
+
       fetch(document.url)
-        .then(response => {
+        .then((response) => {
           if (!response.ok) {
-            throw new Error(`Failed to fetch document: ${response.status} ${response.statusText}`);
+            throw new Error(
+              `Failed to fetch document: ${response.status} ${response.statusText}`,
+            );
           }
           return response.text();
         })
-        .then(content => {
+        .then((content) => {
           setTextContent(content);
           setIsLoading(false);
         })
-        .catch(err => {
-          console.error('Error fetching text document:', err);
-          setError('Failed to load document content. Please try opening it in a new tab.');
+        .catch((err) => {
+          console.error("Error fetching text document:", err);
+          setError(
+            "Failed to load document content. Please try opening it in a new tab.",
+          );
           setIsLoading(false);
         });
     }
@@ -49,7 +56,7 @@ export default function DocumentPreview({ document, onClose }: DocumentPreviewPr
         </div>
       );
     }
-    
+
     if (error) {
       return (
         <div className="h-full flex items-center justify-center">
@@ -57,14 +64,14 @@ export default function DocumentPreview({ document, onClose }: DocumentPreviewPr
         </div>
       );
     }
-    
-    if (document.type === 'pdf' && document.url) {
+
+    if (document.type === "pdf" && document.url) {
       return (
         <div className="h-full flex flex-col">
           <div className="bg-gray-100 p-3 mb-2 rounded flex justify-center">
-            <a 
-              href={document.url} 
-              target="_blank" 
+            <a
+              href={document.url}
+              target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
             >
@@ -72,7 +79,7 @@ export default function DocumentPreview({ document, onClose }: DocumentPreviewPr
             </a>
           </div>
           <div className="flex-grow">
-            <iframe 
+            <iframe
               src={document.url}
               className="w-full h-full border-0"
               title={document.title || document.name}
@@ -81,12 +88,14 @@ export default function DocumentPreview({ document, onClose }: DocumentPreviewPr
         </div>
       );
     }
-    
-    if (document.type === 'text') {
+
+    if (document.type === "text") {
       return (
         <div className="overflow-auto h-full p-4 bg-gray-50 rounded">
           {textContent ? (
-            <pre className="whitespace-pre-wrap font-mono text-sm">{textContent}</pre>
+            <pre className="whitespace-pre-wrap font-mono text-sm">
+              {textContent}
+            </pre>
           ) : (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500">No content available</p>
@@ -95,27 +104,27 @@ export default function DocumentPreview({ document, onClose }: DocumentPreviewPr
         </div>
       );
     }
-    
-    if (document.type === 'url' && document.url) {
+
+    if (document.type === "url" && document.url) {
       return (
-        <iframe 
+        <iframe
           src={document.url}
           className="w-full h-full border-0"
           title={document.title || document.name}
         />
       );
     }
-    
+
     return (
       <div className="h-full flex items-center justify-center">
         <p className="text-gray-500">This document type can't be previewed</p>
       </div>
     );
   };
-  
+
   return (
     <div className="fixed inset-0 z-10 overflow-y-auto">
-      <div 
+      <div
         className="fixed inset-0 bg-black bg-opacity-50"
         onClick={onClose}
       ></div>
@@ -124,23 +133,32 @@ export default function DocumentPreview({ document, onClose }: DocumentPreviewPr
           <h2 className="text-xl font-semibold text-gray-900">
             {document.title || document.name}
           </h2>
-          <button 
+          <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
-        
-        <div className="flex-grow overflow-hidden">
-          {renderContent()}
-        </div>
-        
+
+        <div className="flex-grow overflow-hidden">{renderContent()}</div>
+
         <div className="mt-4 flex justify-end">
-          {document.url && document.type !== 'pdf' && (
-            <a 
+          {document.url && document.type !== "pdf" && (
+            <a
               href={document.url}
               target="_blank"
               rel="noopener noreferrer"
@@ -159,4 +177,4 @@ export default function DocumentPreview({ document, onClose }: DocumentPreviewPr
       </div>
     </div>
   );
-} 
+}

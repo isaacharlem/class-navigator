@@ -13,8 +13,10 @@ export async function DELETE(
   try {
     const params = await context.params;
     const id = params.id;
-    console.log(`[EMPTY CHAT CHECK] Checking if chat ${id} is empty and should be deleted`);
-    
+    console.log(
+      `[EMPTY CHAT CHECK] Checking if chat ${id} is empty and should be deleted`,
+    );
+
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -37,8 +39,8 @@ export async function DELETE(
         course: {
           select: {
             name: true,
-          }
-        }
+          },
+        },
       },
     });
 
@@ -47,35 +49,44 @@ export async function DELETE(
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
 
-    console.log(`[EMPTY CHAT CHECK] Chat ${id} (${chat.title}) for course ${chat.course.name} has ${chat._count.messages} messages (type: ${chat.type})`);
+    console.log(
+      `[EMPTY CHAT CHECK] Chat ${id} (${chat.title}) for course ${chat.course.name} has ${chat._count.messages} messages (type: ${chat.type})`,
+    );
 
     // Only delete the chat if it has no messages
     if (chat._count.messages === 0) {
       // Delete the chat
-      console.log(`[EMPTY CHAT CHECK] Deleting empty chat ${id} (${chat.title}) of type ${chat.type}`);
+      console.log(
+        `[EMPTY CHAT CHECK] Deleting empty chat ${id} (${chat.title}) of type ${chat.type}`,
+      );
       await prisma.chat.delete({
         where: {
           id,
         },
       });
-      return NextResponse.json({ 
-        success: true, 
+      return NextResponse.json({
+        success: true,
         deleted: true,
         chatType: chat.type,
-        chatTitle: chat.title 
+        chatTitle: chat.title,
       });
     }
 
     // If chat has messages, don't delete it
-    console.log(`[EMPTY CHAT CHECK] Chat ${id} has ${chat._count.messages} messages, not deleting (type: ${chat.type})`);
-    return NextResponse.json({ 
-      success: true, 
+    console.log(
+      `[EMPTY CHAT CHECK] Chat ${id} has ${chat._count.messages} messages, not deleting (type: ${chat.type})`,
+    );
+    return NextResponse.json({
+      success: true,
       deleted: false,
       chatType: chat.type,
-      chatTitle: chat.title
+      chatTitle: chat.title,
     });
   } catch (error) {
-    console.error("[EMPTY CHAT CHECK] Failed to check/delete empty chat:", error);
+    console.error(
+      "[EMPTY CHAT CHECK] Failed to check/delete empty chat:",
+      error,
+    );
     return NextResponse.json(
       { error: "Failed to process request" },
       { status: 500 },
