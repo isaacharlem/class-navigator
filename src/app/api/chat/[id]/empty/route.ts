@@ -13,9 +13,12 @@ export async function DELETE(
   try {
     const params = await context.params;
     const id = params.id;
+    console.log(`[EMPTY CHAT CHECK] Checking if chat ${id} is empty and should be deleted`);
+    
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
+      console.log(`[EMPTY CHAT CHECK] Not authenticated for chat ${id}`);
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
@@ -31,28 +34,48 @@ export async function DELETE(
             messages: true,
           },
         },
+        course: {
+          select: {
+            name: true,
+          }
+        }
       },
     });
 
     if (!chat) {
+      console.log(`[EMPTY CHAT CHECK] Chat ${id} not found`);
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
+
+    console.log(`[EMPTY CHAT CHECK] Chat ${id} (${chat.title}) for course ${chat.course.name} has ${chat._count.messages} messages (type: ${chat.type})`);
 
     // Only delete the chat if it has no messages
     if (chat._count.messages === 0) {
       // Delete the chat
+      console.log(`[EMPTY CHAT CHECK] Deleting empty chat ${id} (${chat.title})`);
       await prisma.chat.delete({
         where: {
           id,
         },
       });
-      return NextResponse.json({ success: true, deleted: true });
+      return NextResponse.json({ 
+        success: true, 
+        deleted: true,
+        chatType: chat.type,
+        chatTitle: chat.title 
+      });
     }
 
     // If chat has messages, don't delete it
-    return NextResponse.json({ success: true, deleted: false });
+    console.log(`[EMPTY CHAT CHECK] Chat ${id} has ${chat._count.messages} messages, not deleting`);
+    return NextResponse.json({ 
+      success: true, 
+      deleted: false,
+      chatType: chat.type,
+      chatTitle: chat.title
+    });
   } catch (error) {
-    console.error("Failed to check/delete empty chat:", error);
+    console.error("[EMPTY CHAT CHECK] Failed to check/delete empty chat:", error);
     return NextResponse.json(
       { error: "Failed to process request" },
       { status: 500 },

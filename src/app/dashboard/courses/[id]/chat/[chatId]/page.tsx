@@ -37,6 +37,7 @@ export default function ChatPage() {
   const { data: session, status } = useSession();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const shouldCleanupChat = useRef(false); // Default false since we're loading an existing chat
+  const hasInteracted = useRef(false);
 
   const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -76,6 +77,9 @@ export default function ChatPage() {
           // If we loaded the chat and there are no messages, enable cleanup
           if (data.length === 0) {
             shouldCleanupChat.current = true;
+            console.log(`Chat ${chatIdValue} has no messages, will check for deletion on unmount`);
+          } else {
+            shouldCleanupChat.current = false;
           }
           setLoading(false);
           scrollToBottom();
@@ -89,7 +93,8 @@ export default function ChatPage() {
 
     // Cleanup function for empty chats
     return () => {
-      if (shouldCleanupChat.current && chatIdValue && messages.length === 0) {
+      if (shouldCleanupChat.current && chatIdValue && !hasInteracted.current) {
+        console.log(`Page unmounting, checking if chat ${chatIdValue} is empty and should be deleted`);
         fetch(`/api/chat/${chatIdValue}/empty`, {
           method: "DELETE",
         }).catch(error => {
@@ -97,7 +102,7 @@ export default function ChatPage() {
         });
       }
     };
-  }, [chatIdValue, router, status, messages.length]);
+  }, [chatIdValue, router, status]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -111,6 +116,10 @@ export default function ChatPage() {
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || sending) return;
+
+    // Mark that user has interacted with the chat
+    hasInteracted.current = true;
+    shouldCleanupChat.current = false;
 
     setSending(true);
     setError("");
@@ -159,9 +168,6 @@ export default function ChatPage() {
           createdAt: new Date().toISOString(),
         },
       ]);
-
-      // Disable cleanup since we now have messages
-      shouldCleanupChat.current = false;
     } catch (err) {
       console.error("Error sending message:", err);
       setError("Failed to send message. Please try again.");
@@ -373,14 +379,17 @@ export default function ChatPage() {
                                     </div>
                                   </div>
                                 </div>
-                              ) : citation.sourceText.includes("because of the new implementation with openai assistant") ? (
+                              ) : citation.sourceText.includes(
+                                  "because of the new implementation with openai assistant",
+                                ) ? (
                                 <div className="p-2 bg-orange-50 border-l-2 border-orange-500">
                                   <p className="text-gray-700 whitespace-pre-wrap">
                                     {citation.sourceText}
                                   </p>
                                   <div className="mt-2 flex flex-col">
                                     <p className="text-gray-600 italic mb-2">
-                                      This document is being processed with the OpenAI Assistant API.
+                                      This document is being processed with the
+                                      OpenAI Assistant API.
                                     </p>
                                     <div className="flex justify-end space-x-2">
                                       <button

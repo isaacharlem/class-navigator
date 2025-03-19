@@ -26,28 +26,43 @@ export default function ChatUI({
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const messagesCount = useRef(initialMessages.length);
+  const hasInteracted = useRef(false);
+  
+  // Track if this component has sent any messages
+  const hasSentMessage = useRef(initialMessages.length > 0);
 
   // Scroll to bottom of messages
   useEffect(() => {
     scrollToBottom();
-    messagesCount.current = messages.length;
-  }, [messages]);
+    
+    // If messages change and we have more than initial, mark interaction
+    if (messages.length > initialMessages.length) {
+      hasInteracted.current = true;
+      hasSentMessage.current = true;
+      
+      // Call onSaveChat to inform parent this chat should be kept
+      if (onSaveChat) {
+        onSaveChat();
+      }
+    }
+  }, [messages, initialMessages.length, onSaveChat]);
 
   // Check for empty chat on unmount
   useEffect(() => {
     return () => {
-      // Only check if the initial messages were empty and no new messages were added
-      if (initialMessages.length === 0 && messagesCount.current === 0) {
+      // Only check for deletion if no interaction happened and chat was initially empty
+      if (!hasInteracted.current && !hasSentMessage.current) {
+        console.log(`ChatUI unmounting, checking if chat ${chatId} is empty and should be deleted`);
+        
         // Call the API to delete the chat if it's empty
         fetch(`/api/chat/${chatId}/empty`, {
           method: "DELETE",
-        }).catch((error) => {
+        }).catch(error => {
           console.error("Error cleaning up empty chat:", error);
         });
       }
     };
-  }, [chatId, initialMessages.length]);
+  }, [chatId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

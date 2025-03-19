@@ -34,6 +34,8 @@ export default function CourseChat() {
   const [error, setError] = useState<string | null>(null);
   const chatCreationAttempted = useRef(false);
   const shouldCleanupChat = useRef(true);
+  const hasUsedChat = useRef(false);
+  const isNewChat = useRef(forceNew);
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -78,9 +80,26 @@ export default function CourseChat() {
         }
 
         const chatData = await response.json();
+        
+        // Set the chatId
         setChatId(chatData.id);
+        
+        // Determine if this is a new or existing chat based on message count
+        const isExistingChat = chatData._count?.messages > 0;
+        
+        // For existing chats, don't attempt cleanup
+        if (isExistingChat) {
+          console.log(`Found existing general chat with ${chatData._count.messages} messages`);
+          shouldCleanupChat.current = false;
+          hasUsedChat.current = true;
+          isNewChat.current = false;
+        } else {
+          console.log(`Created new empty general chat: ${chatData.id}`);
+          shouldCleanupChat.current = true;
+          isNewChat.current = true;
+        }
 
-        // Fetch messages if the chat already exists
+        // Fetch messages if the chat exists
         if (chatData.id) {
           const messagesResponse = await fetch(
             `/api/chat/${chatData.id}/messages`,
@@ -89,6 +108,12 @@ export default function CourseChat() {
           if (messagesResponse.ok) {
             const messagesData = await messagesResponse.json();
             setMessages(messagesData);
+            
+            // Double-check: if chat has messages, don't delete it when leaving
+            if (messagesData.length > 0) {
+              shouldCleanupChat.current = false;
+              hasUsedChat.current = true;
+            }
           }
         }
       } catch (err) {
@@ -108,24 +133,31 @@ export default function CourseChat() {
       setup();
     }
 
-    // Cleanup
+    // Cleanup function for component unmount
     return () => {
       chatCreationAttempted.current = false;
-
-      // Check if we need to delete an empty chat when navigating away
-      if (shouldCleanupChat.current && chatId && messages.length === 0) {
+      
+      // Only attempt to delete the chat if:
+      // 1. It should be cleaned up (no messages sent)
+      // 2. We have a chatId
+      // 3. No messages were sent during this session
+      // 4. This was a newly created chat (not a reused one)
+      if (shouldCleanupChat.current && chatId && !hasUsedChat.current && isNewChat.current) {
+        console.log(`Cleaning up empty general chat: ${chatId}`);
         fetch(`/api/chat/${chatId}/empty`, {
           method: "DELETE",
-        }).catch((error) => {
+        }).catch(error => {
           console.error("Error cleaning up empty chat:", error);
         });
       }
     };
-  }, [params.id, forceNew, chatId, messages.length]);
+  }, [params.id, forceNew, chatId]);
 
   // Disable cleanup when a message is sent successfully
   const handleSaveChat = () => {
+    console.log("Chat saved, disabling cleanup");
     shouldCleanupChat.current = false;
+    hasUsedChat.current = true;
   };
 
   if (isLoading) {
