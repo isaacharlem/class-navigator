@@ -10,7 +10,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:api": "jest --testMatch=\"**/__tests__/api-tests.ts\""
+    "test:api": "jest --testMatch=\"**/__tests__/api-tests.ts\"",
+    "pdf:assistant-test": "node test-assistant-pdf.js"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.8.0",
@@ -24,16 +25,14 @@
     "bcrypt": "^5.1.1",
     "canvas": "^2.11.2",
     "cheerio": "^1.0.0",
+    "dotenv": "^16.4.7",
     "langchain": "~0.0.200",
     "next": "15.2.3",
     "next-auth": "^4.24.11",
     "openai": "^4.87.3",
-    "pdf-parse": "^1.1.1",
-    "pdfjs-dist": "^4.0.269",
     "puppeteer": "^19.11.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "tesseract.js": "^4.1.1"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -56,6 +55,7 @@
     "shadcn-ui": "^0.9.5",
     "tailwindcss": "^4",
     "ts-jest": "^29.1.2",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.0.9"
   }
 }

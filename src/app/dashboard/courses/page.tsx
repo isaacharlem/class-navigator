@@ -1,8 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useSession } from 'next-auth/react';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 interface Course {
   id: string;
@@ -16,25 +17,41 @@ interface Course {
   };
 }
 
+interface Chat {
+  id: string;
+  title: string;
+  type: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    messages: number;
+  };
+}
+
 export default function CoursesPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [loadingChats, setLoadingChats] = useState(false);
 
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await fetch('/api/courses');
-        
+        const response = await fetch("/api/courses");
+
         if (!response.ok) {
-          throw new Error('Failed to fetch courses');
+          throw new Error("Failed to fetch courses");
         }
-        
+
         const data = await response.json();
         setCourses(data);
       } catch (err) {
-        setError('Error loading courses. Please try again.');
+        setError("Error loading courses. Please try again.");
         console.error(err);
       } finally {
         setIsLoading(false);
@@ -45,6 +62,42 @@ export default function CoursesPage() {
       fetchCourses();
     }
   }, [session]);
+
+  // Fetch course chats when the chat modal is opened
+  const fetchCourseChats = async (courseId: string) => {
+    if (!courseId) return;
+
+    setLoadingChats(true);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/chat`);
+      if (res.ok) {
+        const data = await res.json();
+        setChats(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch course chats:", err);
+    } finally {
+      setLoadingChats(false);
+    }
+  };
+
+  const handleChatClick = (course: Course) => {
+    setSelectedCourse(course);
+    setShowChatModal(true);
+    fetchCourseChats(course.id);
+  };
+
+  const createNewChat = () => {
+    if (selectedCourse) {
+      router.push(`/dashboard/courses/${selectedCourse.id}/chat?forceNew=true`);
+    }
+  };
+
+  const openExistingChat = (chatId: string) => {
+    if (selectedCourse) {
+      router.push(`/dashboard/courses/${selectedCourse.id}/chat/${chatId}`);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -72,9 +125,137 @@ export default function CoursesPage() {
         </div>
       )}
 
+      {/* Chat Selection Modal */}
+      {showChatModal && selectedCourse && (
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50"
+            onClick={() => setShowChatModal(false)}
+          ></div>
+          <div className="relative mt-24 mx-auto max-w-lg p-6 bg-white rounded-lg shadow-xl">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Chat with {selectedCourse.name}
+            </h2>
+
+            <div className="space-y-4">
+              <button
+                onClick={createNewChat}
+                className="w-full flex items-center justify-between px-4 py-3 bg-indigo-50 hover:bg-indigo-100 rounded-md transition"
+              >
+                <div className="flex items-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 text-indigo-600 mr-3"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span className="font-medium">Create a new chat</span>
+                </div>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 text-indigo-600"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+
+              <div>
+                <h3 className="text-md font-medium text-gray-700 mb-2">
+                  Continue an existing chat
+                </h3>
+
+                {loadingChats ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500 mx-auto"></div>
+                  </div>
+                ) : chats.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-3">
+                    No existing chats found
+                  </p>
+                ) : (
+                  <div className="max-h-60 overflow-y-auto">
+                    <ul className="space-y-2">
+                      {chats.map((chat) => (
+                        <li key={chat.id}>
+                          <button
+                            onClick={() => openExistingChat(chat.id)}
+                            className="w-full flex items-center justify-between px-4 py-2 hover:bg-gray-50 rounded-md transition"
+                          >
+                            <div className="flex items-center">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5 text-gray-400 mr-3"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                              <div className="text-left">
+                                <span className="block font-medium text-gray-800">
+                                  {chat.title}
+                                </span>
+                                <span className="block text-xs text-gray-500">
+                                  {new Date(
+                                    chat.updatedAt,
+                                  ).toLocaleDateString()}{" "}
+                                  • {chat._count?.messages || 0} messages
+                                </span>
+                              </div>
+                            </div>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-5 w-5 text-gray-400"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowChatModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {courses.length === 0 ? (
         <div className="bg-white shadow rounded-lg p-12 text-center">
-          <p className="text-gray-500 mb-4">You haven't added any courses yet.</p>
+          <p className="text-gray-500 mb-4">
+            You haven't added any courses yet.
+          </p>
           <Link
             href="/dashboard/courses/new"
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
@@ -90,9 +271,11 @@ export default function CoursesPage() {
               className="bg-white shadow rounded-lg overflow-hidden"
             >
               <div className="p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-2">{course.name}</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                  {course.name}
+                </h2>
                 <p className="text-gray-500 text-sm mb-4 line-clamp-2">
-                  {course.description || 'No description provided'}
+                  {course.description || "No description provided"}
                 </p>
                 <div className="flex gap-4 text-sm text-gray-500 mb-4">
                   <div className="flex items-center">
@@ -137,12 +320,12 @@ export default function CoursesPage() {
                   >
                     View Details
                   </Link>
-                  <Link
-                    href={`/dashboard/courses/${course.id}/chat`}
+                  <button
+                    onClick={() => handleChatClick(course)}
                     className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded text-white bg-blue-600 hover:bg-blue-700"
                   >
                     Chat
-                  </Link>
+                  </button>
                 </div>
               </div>
               <div className="bg-gray-50 px-6 py-2 text-xs text-gray-500">
@@ -154,4 +337,4 @@ export default function CoursesPage() {
       )}
     </div>
   );
-} 
+}
